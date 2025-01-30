@@ -20,36 +20,34 @@ jobs:
         ]
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4  # Updated to latest version
 
     - name: Set up Rust
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: stable
-        target: ${{ matrix.target }}
-        override: true
+        targets: ${{ matrix.target }}
 
     - name: Build binary
       run: cargo build --release --target ${{ matrix.target }}
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # Updated to latest version
       with:
         name: rustguard-${{ matrix.target }}
         path: target/${{ matrix.target }}/release/rustguard${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-        
+
   release:
     runs-on: ubuntu-latest
     needs: build
     steps:
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4  # Updated to latest version
       with:
         path: ./artifacts
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: artifacts/*
+        files: ./artifacts/*
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
