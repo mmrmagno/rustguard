@@ -110,4 +110,3 @@ jobs:
             artifacts/rustguard-windows.exe/rustguard-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
