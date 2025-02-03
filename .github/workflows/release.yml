@@ -51,8 +51,19 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Update rustup toolchain
+        run: rustup update stable
+
       - name: Add target
         run: rustup target add ${{ matrix.target }}
+
+      # For aarch64-unknown-linux-gnu, configure the cross linker.
+      - name: Configure cross linker for aarch64 (Linux)
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          mkdir -p .cargo
+          echo '[target.aarch64-unknown-linux-gnu]' > .cargo/config.toml
+          echo 'linker = "aarch64-linux-gnu-gcc"' >> .cargo/config.toml
 
       - name: Install Linux cross-compilers for ARM targets
         if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
