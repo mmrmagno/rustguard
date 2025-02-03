@@ -51,6 +51,13 @@ jobs:
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install Linux cross-compilers for ARM targets
+        if: runner.os == 'Linux' && matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -60,7 +67,7 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      # Rename the binary for non-Windows targets.
+      # Rename the binary for Linux/macOS targets.
       - name: Rename binary for Linux/macOS
         if: runner.os != 'Windows'
         run: |
@@ -103,3 +110,4 @@ jobs:
             artifacts/rustguard-windows.exe/rustguard-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
