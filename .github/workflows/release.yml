@@ -3,11 +3,13 @@ on:
   push:
     tags:
       - 'v*'
+
+permissions: 
+  contents: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
     strategy:
       matrix:
         include:
@@ -29,20 +31,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rustguard-${{ matrix.os }}
-          path: |
-            target/release/rustguard
-            target/release/rustguard.exe
+          path: target/release/rustguard${{ runner.os == 'Windows' && '.exe' || '' }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/download-artifact@v4
-      - uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: "**/*"
+          path: artifacts
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
