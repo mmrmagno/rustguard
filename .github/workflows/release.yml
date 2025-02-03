@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'  # Triggers on any tag starting with 'v'
+      - 'v*'  # Triggers on any tag starting with "v"
 
 permissions:
   contents: write
@@ -21,13 +21,17 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Build
         run: cargo build --release
@@ -36,22 +40,26 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rustguard-${{ matrix.os }}
+          # Append '.exe' for Windows builds, otherwise no extension
           path: target/release/rustguard${{ runner.os == 'Windows' && '.exe' || '' }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
       - name: List artifacts (debugging)
         run: ls -R artifacts
 
-      - name: Create Release
+      - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
+          # The colon syntax renames the asset during upload.
+          # This avoids duplicate names if multiple OS builds have the same base filename.
           files: |
             artifacts/rustguard-ubuntu-latest/rustguard:rustguard-linux
             artifacts/rustguard-macos-latest/rustguard:rustguard-macos
