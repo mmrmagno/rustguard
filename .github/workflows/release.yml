@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - 'v*'  # Triggers on any tag starting with "v"
+      - 'v*'  # Trigger on any tag starting with "v"
 
 permissions:
   contents: write
@@ -16,10 +16,13 @@ jobs:
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
+            artifact: target/release/rustguard-linux
           - os: macos-latest
             target: x86_64-apple-darwin
+            artifact: target/release/rustguard-macos
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            artifact: target/release/rustguard-windows.exe
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,27 +39,29 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      # Rename the binary so that each OS produces a unique filename.
+      # Rename the binary so each OS produces a unique filename.
       - name: Rename binary for Linux/macOS
         if: runner.os != 'Windows'
         run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
+          if [ "$RUNNER_OS" = "Linux" ]; then
             mv target/release/rustguard target/release/rustguard-linux
-          else
+          elif [ "$RUNNER_OS" = "macOS" ]; then
             mv target/release/rustguard target/release/rustguard-macos
           fi
         shell: bash
 
       - name: Rename binary for Windows
         if: runner.os == 'Windows'
-        run: rename target\release\rustguard.exe rustguard-windows.exe
+        run: |
+          rem Rename in cmd – note that Windows’ default shell is CMD.
+          ren target\release\rustguard.exe rustguard-windows.exe
+        shell: cmd
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rustguard-${{ matrix.os }}
-          # Use the renamed file for each OS:
-          path: ${{ runner.os == 'Windows' && 'target/release/rustguard-windows.exe' || (runner.os == 'Linux' && 'target/release/rustguard-linux' || 'target/release/rustguard-macos') }}
+          path: ${{ matrix.artifact }}
 
   release:
     needs: build
