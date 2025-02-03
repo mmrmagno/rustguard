@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -26,16 +28,21 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: rustguard-${{ matrix.target }}
-          path: target/release/rustguard${{ runner.os == 'Windows' && '.exe' || '' }}
+          name: rustguard-${{ matrix.os }}
+          path: |
+            target/release/rustguard
+            target/release/rustguard.exe
 
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
       - uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: "**/rustguard*"
+          files: "**/*"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
