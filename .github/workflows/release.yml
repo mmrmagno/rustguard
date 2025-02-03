@@ -53,9 +53,8 @@ jobs:
       - name: Rename binary for Windows
         if: runner.os == 'Windows'
         run: |
-          rem Rename in cmd – note that Windows’ default shell is CMD.
-          ren target\release\rustguard.exe rustguard-windows.exe
-        shell: cmd
+          Rename-Item -Path "target\release\rustguard.exe" -NewName "rustguard-windows.exe"
+        shell: pwsh
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
