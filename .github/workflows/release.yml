@@ -18,30 +18,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      - name: Install dependencies (Linux)
+      - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
       - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
+        run: cargo build --release
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rustguard-${{ matrix.target }}
-          path: target/${{ matrix.target }}/release/rustguard${{ matrix.os == 'Windows' && '.exe' || '' }}
-          
+          path: target/release/rustguard${{ runner.os == 'Windows' && '.exe' || '' }}
+
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
+      - uses: softprops/action-gh-release@v1
         with:
-          path: ./artifacts
-      - name: Create Release
-        uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: ./artifacts/**/*
+          files: "**/rustguard*"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
