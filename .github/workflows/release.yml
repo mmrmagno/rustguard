@@ -53,8 +53,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/rustguard-ubuntu-latest/rustguard
-            artifacts/rustguard-macos-latest/rustguard
-            artifacts/rustguard-windows-latest/rustguard.exe
+            artifacts/rustguard-ubuntu-latest/rustguard:rustguard-linux
+            artifacts/rustguard-macos-latest/rustguard:rustguard-macos
+            artifacts/rustguard-windows-latest/rustguard.exe:rustguard-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
