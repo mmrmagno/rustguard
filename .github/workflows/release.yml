@@ -1,10 +1,11 @@
 name: Release
+
 on:
   push:
     tags:
       - 'v*'
 
-permissions: 
+permissions:
   contents: write
 
 jobs:
@@ -21,12 +22,16 @@ jobs:
             target: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
+
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+
       - name: Build
         run: cargo build --release
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -39,15 +44,17 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          path: List artifacts
-      - name: Create Release
+          path: artifacts
+
+      - name: List artifacts (debugging)
         run: ls -R artifacts
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-          artifacts/rustguard-ubuntu-latest/rustguard
-          artifacts/rustguard-macos-latest/rustguard
-          artifacts/rustguard-windows-latest/rustguard.exe
+            artifacts/rustguard-ubuntu-latest/rustguard
+            artifacts/rustguard-macos-latest/rustguard
+            artifacts/rustguard-windows-latest/rustguard.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
