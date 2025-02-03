@@ -36,12 +36,27 @@ jobs:
       - name: Build
         run: cargo build --release
 
+      # Rename the binary so that each OS produces a unique filename.
+      - name: Rename binary for Linux/macOS
+        if: runner.os != 'Windows'
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ]; then
+            mv target/release/rustguard target/release/rustguard-linux
+          else
+            mv target/release/rustguard target/release/rustguard-macos
+          fi
+        shell: bash
+
+      - name: Rename binary for Windows
+        if: runner.os == 'Windows'
+        run: rename target\release\rustguard.exe rustguard-windows.exe
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: rustguard-${{ matrix.os }}
-          # Append '.exe' for Windows builds, otherwise no extension
-          path: target/release/rustguard${{ runner.os == 'Windows' && '.exe' || '' }}
+          # Use the renamed file for each OS:
+          path: ${{ runner.os == 'Windows' && 'target/release/rustguard-windows.exe' || (runner.os == 'Linux' && 'target/release/rustguard-linux' || 'target/release/rustguard-macos') }}
 
   release:
     needs: build
@@ -58,11 +73,9 @@ jobs:
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          # The colon syntax renames the asset during upload.
-          # This avoids duplicate names if multiple OS builds have the same base filename.
           files: |
-            artifacts/rustguard-ubuntu-latest/rustguard:rustguard-linux
-            artifacts/rustguard-macos-latest/rustguard:rustguard-macos
-            artifacts/rustguard-windows-latest/rustguard.exe:rustguard-windows.exe
+            artifacts/rustguard-ubuntu-latest/rustguard-linux
+            artifacts/rustguard-macos-latest/rustguard-macos
+            artifacts/rustguard-windows-latest/rustguard-windows.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
