@@ -61,3 +61,7 @@ Insert mode: Standard text input; press Esc to return to Normal mode.
 - WireGuard (wg-quick and wg installed)
 
 - sudo privileges to manage VPNs
+
+## License 📜
+
+RustGuard is licensed under the [Apache License 2.0](LICENSE).
