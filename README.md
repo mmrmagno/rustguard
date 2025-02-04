@@ -1,6 +1,6 @@
 # RustGuard 🛡️
 
-RustGuard is a terminal-based WireGuard VPN manager written in Rust.
+A CLI-based WireGuard VPN manager written in Rust.
 
 ## Features 🚀
 
