@@ -10,6 +10,10 @@ RustGuard is a terminal-based WireGuard VPN manager written in Rust.
 
 - View currently active VPN connections
 
+- WireGuard Configuration Editor
+
+- Kill-Switch
+
 - Status log for recent actions
 
 - Simple keyboard navigation
@@ -33,15 +37,22 @@ sudo ./target/release/rustguard
 ### Controls:
 
 ```
+Manager Screen:
+
 ↑ / ↓ or h / j / k / l - Navigate profiles
-
 Enter - Connect/Disconnect VPN
-
-S - View Status Log
-
-W - Return to VPN Manager
-
+D - View VPN details
+Shift+K - Toggle the kill-switch
+E - Edit WireGuard configuration
+S - View status log
+H - Open help screen
 Q - Quit
+
+Editor Screen:
+
+Normal mode: i, a, o, h/j/k/l, x, D, ?, Ctrl+S, Esc
+Insert mode: Standard text input; press Esc to return to Normal mode.
+
 ```
 ## Requirements 🛠️
 
