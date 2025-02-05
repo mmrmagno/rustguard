@@ -12,8 +12,6 @@ A CLI-based WireGuard VPN manager written in Rust.
 
 - WireGuard Configuration Editor
 
-- Kill-Switch
-
 - Status log for recent actions
 
 - Simple keyboard navigation
@@ -42,7 +40,6 @@ Manager Screen:
 ↑ / ↓ or h / j / k / l - Navigate profiles
 Enter - Connect/Disconnect VPN
 D - View VPN details
-Shift+K - Toggle the kill-switch
 E - Edit WireGuard configuration
 S - View status log
 H - Open help screen
