@@ -47,9 +47,27 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     horizontal_layout[1]
 }
 
-/// Write a persistent log entry to /var/log/rustguard.log
+/// Returns the configuration directory based on the OS.
+fn config_path() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => r"C:\ProgramData\rustguard\wireguard\",
+        "macos" => "/usr/local/etc/wireguard/",
+        _ => "/etc/wireguard/",
+    }
+}
+
+/// Returns the log file path based on the OS.
+fn log_file_path() -> &'static str {
+    match std::env::consts::OS {
+        "windows" => r"C:\ProgramData\rustguard\rustguard.log",
+        "macos" => "/usr/local/var/log/rustguard.log",
+        _ => "/var/log/rustguard.log",
+    }
+}
+
+/// Write a persistent log entry.
 fn log_status(message: &str) {
-    let log_path = "/var/log/rustguard.log";
+    let log_path = log_file_path();
     let mut file = OpenOptions::new()
         .append(true)
         .create(true)
@@ -58,9 +76,9 @@ fn log_status(message: &str) {
     writeln!(file, "{}", message).expect("Failed to write to log file");
 }
 
-/// List all VPN profiles (config files) in /etc/wireguard/ (without the ".conf" suffix).
+/// List all VPN profiles (config files) in the configuration directory (without the ".conf" suffix).
 fn list_vpn_profiles() -> Vec<String> {
-    let path = "/etc/wireguard/";
+    let path = config_path();
     if let Ok(entries) = fs::read_dir(path) {
         entries
             .filter_map(|entry| entry.ok())
@@ -73,8 +91,20 @@ fn list_vpn_profiles() -> Vec<String> {
     }
 }
 
-/// Toggle the VPN connection using "wg-quick up/down"
+/// Toggle the VPN connection using "wg-quick up/down".
+/// For the "up" action, check that the configuration file is not empty.
 fn toggle_vpn(profile: &str, action: &str) -> String {
+    if action == "up" {
+        let filename = format!("{}{}.conf", config_path(), profile);
+        if let Ok(content) = fs::read_to_string(&filename) {
+            if content.trim().is_empty() {
+                return format!("❌ Failed to start VPN: configuration file {} is empty.", filename);
+            }
+        } else {
+            return format!("❌ Failed to read configuration file {}.", filename);
+        }
+    }
+
     let output = Command::new("sudo")
         .arg("wg-quick")
         .arg(action)
@@ -121,40 +151,6 @@ fn get_vpn_details(interface: &str) -> String {
     String::from_utf8_lossy(&output.stdout).to_string()
 }
 
-/// Enable kill-switch mode for a given VPN interface by modifying iptables.
-fn apply_kill_switch(interface: &str) -> String {
-    let cmd1 = Command::new("sudo")
-        .args(&["iptables", "-A", "OUTPUT", "-o", interface, "-j", "ACCEPT"])
-        .output();
-    let cmd2 = Command::new("sudo")
-        .args(&["iptables", "-A", "OUTPUT", "-d", "0.0.0.0/0", "-j", "DROP"])
-        .output();
-
-    if let (Ok(o1), Ok(o2)) = (cmd1, cmd2) {
-        if o1.status.success() && o2.status.success() {
-            return format!("Kill switch enabled for {}", interface);
-        }
-    }
-    format!("Failed to enable kill switch for {}", interface)
-}
-
-/// Disable kill-switch mode by removing iptables rules for the given interface.
-fn remove_kill_switch(interface: &str) -> String {
-    let cmd1 = Command::new("sudo")
-        .args(&["iptables", "-D", "OUTPUT", "-o", interface, "-j", "ACCEPT"])
-        .output();
-    let cmd2 = Command::new("sudo")
-        .args(&["iptables", "-D", "OUTPUT", "-d", "0.0.0.0/0", "-j", "DROP"])
-        .output();
-
-    if let (Ok(o1), Ok(o2)) = (cmd1, cmd2) {
-        if o1.status.success() && o2.status.success() {
-            return format!("Kill switch disabled for {}", interface);
-        }
-    }
-    format!("Failed to disable kill switch for {}", interface)
-}
-
 /// Minimal Vim–like editor mode.
 #[derive(Clone, Debug, PartialEq)]
 enum EditorMode {
@@ -186,7 +182,7 @@ impl EditorState {
             lines,
             cursor_row: 0,
             cursor_col: 0,
-            mode: EditorMode::Normal, // Start in Normal mode.
+            mode: EditorMode::Normal,
             show_cheatsheet: false,
         }
     }
@@ -200,7 +196,6 @@ impl EditorState {
     fn handle_event(&mut self, key: KeyEvent) -> Option<&'static str> {
         match self.mode {
             EditorMode::Normal => {
-                // If the cheatsheet is visible, any key in normal mode hides it.
                 if self.show_cheatsheet {
                     self.show_cheatsheet = false;
                     return None;
@@ -232,11 +227,9 @@ impl EditorState {
                     }
                     KeyCode::Char('i') => {
                         self.mode = EditorMode::Insert;
-                        // Show the terminal cursor when entering insert mode.
                         execute!(std::io::stdout(), cursor::Show).ok();
                     }
                     KeyCode::Char('a') => {
-                        // Append: move one character to the right (if possible) and enter insert mode.
                         if let Some(line) = self.lines.get(self.cursor_row) {
                             if self.cursor_col < line.len() {
                                 self.cursor_col += 1;
@@ -246,7 +239,6 @@ impl EditorState {
                         execute!(std::io::stdout(), cursor::Show).ok();
                     }
                     KeyCode::Char('o') => {
-                        // Open a new line below.
                         self.cursor_row += 1;
                         self.lines.insert(self.cursor_row, String::new());
                         self.cursor_col = 0;
@@ -261,7 +253,6 @@ impl EditorState {
                         }
                     }
                     KeyCode::Char('D') => {
-                        // Delete the entire current line.
                         if self.lines.len() > 1 {
                             self.lines.remove(self.cursor_row);
                             if self.cursor_row >= self.lines.len() {
@@ -269,13 +260,11 @@ impl EditorState {
                             }
                             self.cursor_col = self.cursor_col.min(self.lines[self.cursor_row].len());
                         } else {
-                            // If it's the only line, clear its contents.
                             self.lines[0].clear();
                             self.cursor_col = 0;
                         }
                     }
                     KeyCode::Char('?') => {
-                        // Toggle the cheatsheet overlay.
                         self.show_cheatsheet = !self.show_cheatsheet;
                     }
                     KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
@@ -287,7 +276,6 @@ impl EditorState {
             }
             EditorMode::Insert => {
                 match key.code {
-                    // Esc leaves insert mode (returning to normal mode).
                     KeyCode::Esc => {
                         self.mode = EditorMode::Normal;
                     }
@@ -361,33 +349,28 @@ impl EditorState {
 
 /// All the screens our application can show.
 enum Screen {
-    Manager, // Main manager UI
-    Status,  // Persistent status log
-    Help,    // Global keybindings help
+    Manager,    // Main manager UI
+    Status,     // Persistent status log
+    Help,       // Global keybindings help
     Details { interface: String, details: String }, // VPN details view
     Editor(EditorState), // Config editor
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    // Setup terminal.
     enable_raw_mode()?;
     let mut stdout = std::io::stdout();
     execute!(stdout, EnterAlternateScreen, cursor::Hide)?;
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    // Initial application state.
     let profiles = list_vpn_profiles();
     let mut selected_index: usize = 0;
     let mut status_log: Vec<String> = Vec::new();
-    let mut kill_switch_enabled = false;
     let mut screen = Screen::Manager;
 
     loop {
-        // Update active VPNs on every iteration.
         let active_vpns = get_active_vpns();
 
-        // Draw the UI based on the active screen.
         terminal.draw(|f| {
             let area = f.area();
             match &screen {
@@ -405,7 +388,6 @@ fn main() -> Result<(), Box<dyn Error>> {
                         )
                         .split(area);
 
-                    // Build the list of VPN profiles.
                     let items: Vec<ListItem> = profiles
                         .iter()
                         .enumerate()
@@ -434,17 +416,19 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let list = List::new(items).block(block);
                     f.render_widget(list, chunks[0]);
 
-                    let active_conns = Paragraph::new(if active_vpns.is_empty() {
-                        "None".into()
-                    } else {
-                        active_vpns.join(", ")
-                    })
+                    let active_conns = Paragraph::new(
+                        if active_vpns.is_empty() {
+                            "None".into()
+                        } else {
+                            active_vpns.join(", ")
+                        },
+                    )
                     .block(Block::default().borders(Borders::ALL).title(" Active Connections "));
                     f.render_widget(active_conns, chunks[1]);
 
                     let instructions = Paragraph::new(
                         "↑/k, ↓/j: Navigate | Enter: Connect/Disconnect | D: Details | \
-                         K (Shift+k): Toggle Kill-Switch | E: Edit Config | Q: Quit",
+                         E: Edit Config | Q: Quit",
                     )
                     .block(Block::default().borders(Borders::ALL));
                     f.render_widget(instructions, chunks[2]);
@@ -479,7 +463,6 @@ fn main() -> Result<(), Box<dyn Error>> {
 ↑/k, ↓/j: Navigate
 Enter: Connect/Disconnect VPN
 D: VPN Details
-K: Toggle Kill-Switch Mode
 E: Edit Config
 S: View Status Log
 W: WireGuard Manager
@@ -499,17 +482,16 @@ Press any key to return.";
                     f.render_widget(paragraph, area);
                 }
                 Screen::Editor(editor_state) => {
-                    // Render the editor area.
                     let content = editor_state.lines.join("\n");
                     let block = Block::default().title(format!(
-                        " Editing /etc/wireguard/{}.conf (Ctrl+S: Save, Esc: Cancel) ",
+                        " Editing {}{}.conf (Ctrl+S: Save, Esc: Cancel) ",
+                        config_path(),
                         editor_state.profile
                     ))
                     .borders(Borders::ALL);
                     let paragraph = Paragraph::new(content).block(block);
                     f.render_widget(paragraph, area);
 
-                    // Render a footer showing the current mode and cursor position.
                     let mode_str = match editor_state.mode {
                         EditorMode::Normal => "NORMAL",
                         EditorMode::Insert => "INSERT",
@@ -528,7 +510,6 @@ Press any key to return.";
                         .style(Style::default().fg(Color::Yellow));
                     f.render_widget(footer, footer_area[1]);
 
-                    // If the cheatsheet is toggled, render it as an overlay.
                     if editor_state.show_cheatsheet {
                         let help_text = "Editor Cheatsheet (Normal mode):
 i      : Enter Insert mode
@@ -549,8 +530,6 @@ Press any key (in Normal mode) to hide this help.";
                         f.render_widget(help_paragraph, overlay_area);
                     }
 
-                    // Set the terminal cursor position.
-                    // Adjust by +1 in x and y for the block's borders.
                     let cursor_x = area.x + editor_state.cursor_col as u16 + 1;
                     let cursor_y = area.y + editor_state.cursor_row as u16 + 1;
                     f.set_cursor_position((cursor_x, cursor_y));
@@ -558,7 +537,6 @@ Press any key (in Normal mode) to hide this help.";
             }
         })?;
 
-        // Poll for events.
         if event::poll(Duration::from_millis(200))? {
             let ev = event::read()?;
             match &mut screen {
@@ -566,91 +544,36 @@ Press any key (in Normal mode) to hide this help.";
                     if let Event::Key(key) = ev {
                         match key.code {
                             KeyCode::Char('q') => break,
-                            KeyCode::Char('s') => {
-                                screen = Screen::Status;
-                            }
-                            KeyCode::Char('h') => {
-                                screen = Screen::Help;
-                            }
+                            KeyCode::Char('s') => { screen = Screen::Status; }
+                            KeyCode::Char('h') => { screen = Screen::Help; }
                             KeyCode::Char('d') => {
-                                // Show VPN details for the selected profile.
-                                if profiles.is_empty() {
-                                    continue;
-                                }
+                                if profiles.is_empty() { continue; }
                                 let selected = profiles[selected_index].clone();
                                 let details = get_vpn_details(&selected);
-                                screen = Screen::Details {
-                                    interface: selected,
-                                    details,
-                                };
-                            }
-                            // Toggle kill-switch when Shift+K is pressed.
-                            KeyCode::Char('K') => {
-                                kill_switch_enabled = !kill_switch_enabled;
-                                let mut msg = String::new();
-                                if kill_switch_enabled {
-                                    for iface in active_vpns.iter() {
-                                        let s = apply_kill_switch(iface);
-                                        msg.push_str(&s);
-                                        msg.push('\n');
-                                    }
-                                    msg = format!("Kill switch enabled:\n{}", msg);
-                                } else {
-                                    for iface in active_vpns.iter() {
-                                        let s = remove_kill_switch(iface);
-                                        msg.push_str(&s);
-                                        msg.push('\n');
-                                    }
-                                    msg = format!("Kill switch disabled:\n{}", msg);
-                                }
-                                status_log.push(msg.clone());
-                                log_status(&msg);
+                                screen = Screen::Details { interface: selected, details };
                             }
                             KeyCode::Char('e') => {
-                                // Open the config editor for the selected VPN.
-                                if profiles.is_empty() {
-                                    continue;
-                                }
+                                if profiles.is_empty() { continue; }
                                 let selected = profiles[selected_index].clone();
-                                let filename = format!("/etc/wireguard/{}.conf", selected);
+                                let filename = format!("{}{}.conf", config_path(), selected);
                                 let content = fs::read_to_string(&filename).unwrap_or_default();
                                 let editor_state = EditorState::new(selected, content);
                                 screen = Screen::Editor(editor_state);
                                 execute!(std::io::stdout(), cursor::Show).ok();
                             }
                             KeyCode::Up | KeyCode::Char('k') => {
-                                if selected_index > 0 {
-                                    selected_index -= 1;
-                                }
+                                if selected_index > 0 { selected_index -= 1; }
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
-                                if selected_index + 1 < profiles.len() {
-                                    selected_index += 1;
-                                }
+                                if selected_index + 1 < profiles.len() { selected_index += 1; }
                             }
                             KeyCode::Enter => {
-                                if profiles.is_empty() {
-                                    continue;
-                                }
+                                if profiles.is_empty() { continue; }
                                 let selected = profiles[selected_index].clone();
                                 let msg = if active_vpns.contains(&selected) {
-                                    // Disconnect
-                                    let m = toggle_vpn(&selected, "down");
-                                    if kill_switch_enabled {
-                                        let ks = remove_kill_switch(&selected);
-                                        status_log.push(ks.clone());
-                                        log_status(&ks);
-                                    }
-                                    m
+                                    toggle_vpn(&selected, "down")
                                 } else {
-                                    // Connect
-                                    let m = toggle_vpn(&selected, "up");
-                                    if kill_switch_enabled {
-                                        let ks = apply_kill_switch(&selected);
-                                        status_log.push(ks.clone());
-                                        log_status(&ks);
-                                    }
-                                    m
+                                    toggle_vpn(&selected, "up")
                                 };
                                 status_log.push(msg.clone());
                                 log_status(&msg);
@@ -669,20 +592,16 @@ Press any key (in Normal mode) to hide this help.";
                     }
                 }
                 Screen::Help => {
-                    if let Event::Key(_) = ev {
-                        screen = Screen::Manager;
-                    }
+                    if let Event::Key(_) = ev { screen = Screen::Manager; }
                 }
                 Screen::Details { .. } => {
-                    if let Event::Key(_) = ev {
-                        screen = Screen::Manager;
-                    }
+                    if let Event::Key(_) = ev { screen = Screen::Manager; }
                 }
                 Screen::Editor(editor_state) => {
                     if let Event::Key(key) = ev {
                         if let Some(result) = editor_state.handle_event(key) {
                             if result == "saved" {
-                                let filename = format!("/etc/wireguard/{}.conf", editor_state.profile);
+                                let filename = format!("{}{}.conf", config_path(), editor_state.profile);
                                 if let Err(e) = fs::write(&filename, editor_state.lines.join("\n")) {
                                     let err_msg = format!("Error saving file {}: {}", filename, e);
                                     status_log.push(err_msg.clone());
@@ -693,7 +612,6 @@ Press any key (in Normal mode) to hide this help.";
                                     log_status(&msg);
                                 }
                             }
-                            // Whether saved or canceled, return to manager.
                             screen = Screen::Manager;
                             execute!(std::io::stdout(), cursor::Hide).ok();
                         }
@@ -703,7 +621,6 @@ Press any key (in Normal mode) to hide this help.";
         }
     }
 
-    // Restore terminal.
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen, cursor::Show)?;
     Ok(())
