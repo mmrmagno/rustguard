@@ -35,7 +35,7 @@ sudo ./target/release/rustguard
 ### Controls:
 
 ```
-Manager Screen:
+Manager:
 
 ↑ / ↓ or h / j / k / l - Navigate profiles
 Enter - Connect/Disconnect VPN
@@ -45,7 +45,7 @@ S - View status log
 H - Open help screen
 Q - Quit
 
-Editor Screen:
+Editor:
 
 Normal mode: i, a, o, h/j/k/l, x, D, ?, Ctrl+S, Esc
 Insert mode: Standard text input; press Esc to return to Normal mode.
