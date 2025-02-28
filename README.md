@@ -55,7 +55,7 @@ Insert mode: Standard text input; press Esc to return to Normal mode.
 
 - Rust
 
-- WireGuard (wg-quick and wg installed)
+- WireGuard (wg-quick installed)
 
 - sudo privileges to manage VPNs
 
